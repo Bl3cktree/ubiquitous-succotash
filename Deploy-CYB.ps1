@@ -42,7 +42,6 @@ Write-Host -ForegroundColor Green "Create C:\Windows\Panther\unattend.xml"
 If (!(Test-Path "C:\Windows\Panther")) {
     New-Item "C:\Windows\Panther" -ItemType Directory -Force | Out-Null
 }
-
 $UnattendXml = @'
 <?xml version="1.0" encoding="utf-8"?>
 <unattend xmlns="urn:schemas-microsoft-com:unattend">
@@ -66,7 +65,7 @@ $UnattendXml = @'
       <UserAccounts>
         <LocalAccounts>
           <LocalAccount wcm:action="add">
-            <Name>admincy</Name>
+            <n>admincy</n>
             <DisplayName>admincy</DisplayName>
             <Group>Administrators</Group>
             <Password>
@@ -93,30 +92,24 @@ $UnattendXml = @'
 $UnattendXml | Out-File -FilePath 'C:\Windows\Panther\unattend.xml' -Encoding utf8 -Width 2000 -Force
 
 #================================================
-#  [PostOS] SetupComplete CMD schreiben
+#  [PostOS] CYB SetupComplete schreiben
+#  OSDCloud ruft C:\OSDCloud\Scripts\SetupComplete\SetupComplete.cmd automatisch auf
 #================================================
-Write-Host -ForegroundColor Green "Create C:\Windows\Setup\Scripts\SetupComplete.cmd"
-If (!(Test-Path "C:\Windows\Setup\Scripts")) {
-    New-Item "C:\Windows\Setup\Scripts" -ItemType Directory -Force | Out-Null
+Write-Host -ForegroundColor Green "Create C:\OSDCloud\Scripts\SetupComplete\SetupComplete.cmd"
+If (!(Test-Path "C:\OSDCloud\Scripts\SetupComplete")) {
+    New-Item "C:\OSDCloud\Scripts\SetupComplete" -ItemType Directory -Force | Out-Null
 }
 
-$SetupCompleteCMD = @'
-powershell.exe -ExecutionPolicy Bypass -File C:\Windows\Setup\Scripts\SetupComplete.ps1
+$CYBSetupCMD = @'
+powershell.exe -ExecutionPolicy Bypass -File C:\OSDCloud\Scripts\SetupComplete\CYB-PostInstall.ps1
 '@
-$SetupCompleteCMD | Out-File -FilePath 'C:\Windows\Setup\Scripts\SetupComplete.cmd' -Encoding ascii -Force
+$CYBSetupCMD | Out-File -FilePath 'C:\OSDCloud\Scripts\SetupComplete\SetupComplete.cmd' -Encoding ascii -Force
 
-#================================================
-#  [PostOS] SetupComplete PS1 schreiben
-#================================================
-Write-Host -ForegroundColor Green "Create C:\Windows\Setup\Scripts\SetupComplete.ps1"
-
-$SetupCompletePS1 = @"
+$CYBSetupPS1 = @"
 `$LogPath = "C:\Windows\Logs\Cyberdyne-PostInstall.log"
 New-Item -Path (Split-Path `$LogPath) -ItemType Directory -Force -ErrorAction SilentlyContinue
 Start-Transcript -Path `$LogPath -Append
-
 Write-Host "=== Cyberdyne Post-Install ===" -ForegroundColor Cyan
-Write-Host (Get-Date -Format 'dd.MM.yyyy HH:mm:ss') -ForegroundColor Cyan
 
 # 1. Zeitzone
 Set-TimeZone -Id "W. Europe Standard Time"
@@ -140,13 +133,8 @@ try {
     Write-Host "Datto RMM FEHLER: `$_" -ForegroundColor Red
 }
 
-# 4. WinGet Task registrieren (laeuft nach erstem Login)
-`$WGScript = @'
-foreach (`$App in @("7zip.7zip","VideoLAN.VLC","Notepad++.Notepad++","Adobe.Acrobat.Reader.64-bit")) {
-    winget install --id `$App --silent --accept-package-agreements --accept-source-agreements --source=winget
-}
-Unregister-ScheduledTask -TaskName "CYB-WinGetApps" -Confirm:`$false
-'@
+# 4. WinGet Task
+`$WGScript = 'foreach (`$App in @("7zip.7zip","VideoLAN.VLC","Notepad++.Notepad++","Adobe.Acrobat.Reader.64-bit")) { winget install --id `$App --silent --accept-package-agreements --accept-source-agreements --source=winget }; Unregister-ScheduledTask -TaskName "CYB-WinGetApps" -Confirm:`$false'
 `$WGScript | Out-File "C:\Windows\Temp\CYB-WinGetApps.ps1" -Encoding utf8 -Force
 `$Action    = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File C:\Windows\Temp\CYB-WinGetApps.ps1"
 `$Trigger   = New-ScheduledTaskTrigger -AtLogOn
@@ -154,11 +142,9 @@ Unregister-ScheduledTask -TaskName "CYB-WinGetApps" -Confirm:`$false
 Register-ScheduledTask -TaskName "CYB-WinGetApps" -Action `$Action -Trigger `$Trigger -Principal `$Principal -Force
 Write-Host "WinGet-Task: OK" -ForegroundColor Green
 
-Write-Host "=== Post-Install abgeschlossen ===" -ForegroundColor Cyan
 Stop-Transcript
 "@
-$SetupCompletePS1 | Out-File -FilePath 'C:\Windows\Setup\Scripts\SetupComplete.ps1' -Encoding utf8 -Force
-
+$CYBSetupPS1 | Out-File -FilePath 'C:\OSDCloud\Scripts\SetupComplete\CYB-PostInstall.ps1' -Encoding utf8 -Force
 #=======================================================================
 #   Restart-Computer
 #=======================================================================
