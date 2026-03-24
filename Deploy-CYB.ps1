@@ -12,23 +12,9 @@ Install-Module OSD -Force
 Write-Host -ForegroundColor Green "Importing OSD PowerShell Module"
 Import-Module OSD -Force
 
-#=======================================================================
-#   [OS] Params and Start-OSDCloud
-#=======================================================================
-$Params = @{
-    OSVersion    = "Windows 11"
-    OSBuild      = "25H2"
-    OSEdition    = "Pro"
-    OSLanguage   = "de-de"
-    OSActivation = "Volume"
-    ZTI          = $true
-    Firmware     = $false
-}
-Start-OSDCloud @Params
-
 #================================================
-#  [PostOS] unattend.xml schreiben
-#  Wird von Windows beim ersten Boot aus C:\Windows\Panther\ gelesen
+#  [PreOS] unattend.xml schreiben
+#  MUSS vor Start-OSDCloud stehen
 #================================================
 Write-Host -ForegroundColor Green "Create C:\Windows\Panther\unattend.xml"
 If (!(Test-Path "C:\Windows\Panther")) {
@@ -86,7 +72,8 @@ $UnattendXml | Out-File -FilePath 'C:\Windows\Panther\unattend.xml' -Encoding ut
 Write-Host -ForegroundColor Green "unattend.xml: OK"
 
 #================================================
-#  [PostOS] CYB SetupComplete schreiben
+#  [PreOS] CYB SetupComplete schreiben
+#  MUSS vor Start-OSDCloud stehen
 #  OSDCloud ruft C:\OSDCloud\Scripts\SetupComplete\SetupComplete.cmd automatisch auf
 #================================================
 Write-Host -ForegroundColor Green "Create C:\OSDCloud\Scripts\SetupComplete\"
@@ -94,12 +81,10 @@ If (!(Test-Path "C:\OSDCloud\Scripts\SetupComplete")) {
     New-Item "C:\OSDCloud\Scripts\SetupComplete" -ItemType Directory -Force | Out-Null
 }
 
-# SetupComplete.cmd — Einstiegspunkt fuer OSDCloud
 $CYBSetupCMD = 'powershell.exe -ExecutionPolicy Bypass -File C:\OSDCloud\Scripts\SetupComplete\CYB-PostInstall.ps1'
 $CYBSetupCMD | Out-File -FilePath 'C:\OSDCloud\Scripts\SetupComplete\SetupComplete.cmd' -Encoding ascii -Force
 Write-Host -ForegroundColor Green "SetupComplete.cmd: OK"
 
-# CYB-PostInstall.ps1 — wird von SetupComplete.cmd aufgerufen
 $CYBSetupPS1 = @"
 `$LogPath = "C:\Windows\Logs\Cyberdyne-PostInstall.log"
 New-Item -Path (Split-Path `$LogPath) -ItemType Directory -Force -ErrorAction SilentlyContinue
@@ -129,7 +114,7 @@ try {
     Write-Host "Datto RMM FEHLER: `$_" -ForegroundColor Red
 }
 
-# 4. WinGet Task registrieren (laeuft nach erstem Login als SYSTEM)
+# 4. WinGet Task registrieren
 `$WGScript = 'foreach (`$App in @("7zip.7zip","VideoLAN.VLC","Notepad++.Notepad++","Adobe.Acrobat.Reader.64-bit")) { winget install --id `$App --silent --accept-package-agreements --accept-source-agreements --source=winget }; Unregister-ScheduledTask -TaskName "CYB-WinGetApps" -Confirm:`$false'
 `$WGScript | Out-File "C:\Windows\Temp\CYB-WinGetApps.ps1" -Encoding utf8 -Force
 `$Action    = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File C:\Windows\Temp\CYB-WinGetApps.ps1"
@@ -145,8 +130,16 @@ $CYBSetupPS1 | Out-File -FilePath 'C:\OSDCloud\Scripts\SetupComplete\CYB-PostIns
 Write-Host -ForegroundColor Green "CYB-PostInstall.ps1: OK"
 
 #=======================================================================
-#   Restart-Computer
+#   [OS] Params and Start-OSDCloud
+#   MUSS zuletzt stehen — rebootet automatisch
 #=======================================================================
-Write-Host -ForegroundColor Green "Restarting in 10 seconds!"
-Start-Sleep -Seconds 10
-wpeutil reboot
+$Params = @{
+    OSVersion    = "Windows 11"
+    OSBuild      = "25H2"
+    OSEdition    = "Pro"
+    OSLanguage   = "de-de"
+    OSActivation = "Volume"
+    ZTI          = $true
+    Firmware     = $false
+}
+Start-OSDCloud @Params
