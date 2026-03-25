@@ -26,3 +26,7 @@ $Params = @{
     Firmware     = $false
 }
 Start-OSDCloud @Params
+#Neustart nach OSDCloud 
+Write-Host "Restarting in 10 sec..." -ForegroundColor Green
+Start-Sleep -Seconds 10 
+wpeutil reboot 
