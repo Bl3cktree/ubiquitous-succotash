@@ -9,7 +9,7 @@
 #================================================
 # OVERLAY STARTEN
 #================================================
-$OverlayPath = "X:\OSDCloud\Config\Scripts\CYB-DeployOverlay-WinPE.ps1"
+$OverlayPath = "X:\OSDCloud\Config\Scripts\DeployOverlay-WinPE.ps1"
 if (Test-Path $OverlayPath) {
     . $OverlayPath
 } else {
