@@ -37,13 +37,13 @@ Update-DeployStatus -Step 2 -Message "Windows 11 wird heruntergeladen..." `
                              -SubMessage "Dieser Vorgang dauert einige Minuten" -Progress 25
 
 $Params = @{
-    OSVersion    = "Windows 11"
-    OSBuild      = "25H2"
-    OSEdition    = "Pro"
-    OSLanguage   = "de-de"
-    OSActivation = "Volume"
-    ZTI          = $true
-    Firmware     = $false
+    OSVersion  = "Windows 11"
+    OSBuild    = "24H2"
+    OSEdition  = "Pro"
+    OSLanguage = "de-de"
+    OSLicense  = "Volume"
+    ZTI        = $true
+    Firmware   = $false
 }
 Start-OSDCloud @Params
 
