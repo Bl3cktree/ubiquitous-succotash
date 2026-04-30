@@ -1,42 +1,40 @@
-# Deploy-CYB.ps1
-# GitHub: https://raw.githubusercontent.com/Bl3cktree/ubiquitous-succotash/refs/heads/main/Deploy-CYB.ps1
-
 #================================================
 # TLS Fix
 #================================================
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 #================================================
-# OVERLAY STARTEN
+# OVERLAY STARTEN (erstes was passiert)
 #================================================
 $OverlayPath = "X:\OSDCloud\Config\Scripts\DeployOverlay-WinPE.ps1"
 if (Test-Path $OverlayPath) {
     . $OverlayPath
 } else {
-    function Update-DeployStatus { param([int]$Step, [string]$Message) Write-Host "[$Step] $Message" -ForegroundColor Cyan }
+    function Update-DeployStatus {
+        param([int]$Step, [string]$Message, [string]$SubMessage = "", [int]$Progress = -1)
+        Write-Host "[$Step] $Message" -ForegroundColor Cyan
+    }
     function Close-DeployOverlay { Write-Host "Abgeschlossen." -ForegroundColor Green }
 }
 
 #================================================
-# [PreOS] Update Module
+# [1/4] PreOS – Module laden
 #================================================
-Update-DeployStatus -Step 1 -Message "[1/4] Deployment wird vorbereitet..."
+Update-DeployStatus -Step 1 -Message "Deployment wird vorbereitet..." -Progress 5
 
 if ((Get-MyComputerModel) -match 'Virtual') {
-    Write-Host -ForegroundColor Green "Setting Display Resolution to 1600x"
     Set-DisRes 1600
 }
 
-Write-Host -ForegroundColor Green "Updating OSD PowerShell Module"
+Update-DeployStatus -Step 1 -Message "OSD Modul wird aktualisiert..." -Progress 15
 Install-Module OSD -Force
-Write-Host -ForegroundColor Green "Importing OSD PowerShell Module"
 Import-Module OSD -Force
 
 #================================================
-# [OS] Start-OSDCloud
-# PostOS wird ueber USB SetupComplete ausgefuehrt
+# [2/4] Windows Download
 #================================================
-Update-DeployStatus -Step 2 -Message "[2/4] Windows wird heruntergeladen..."
+Update-DeployStatus -Step 2 -Message "Windows 11 wird heruntergeladen..." `
+                             -SubMessage "Dieser Vorgang dauert einige Minuten" -Progress 25
 
 $Params = @{
     OSVersion    = "Windows 11"
@@ -50,29 +48,32 @@ $Params = @{
 Start-OSDCloud @Params
 
 #================================================
-# [PostOS] SetupComplete Scripts kopieren
+# [3/4] System vorbereiten
 #================================================
-Update-DeployStatus -Step 3 -Message "[3/4] System wird vorbereitet..."
+Update-DeployStatus -Step 3 -Message "System wird vorbereitet..." -Progress 80
+
+$UnattendScript = "X:\OSDCloud\Config\Scripts\CYB-WriteUnattend.ps1"
+if (Test-Path $UnattendScript) { & $UnattendScript }
 
 $SetupScriptDest = "C:\Windows\Setup\Scripts"
 New-Item -Path $SetupScriptDest -ItemType Directory -Force | Out-Null
-
 foreach ($File in @("SetupComplete.cmd", "SetupComplete.ps1")) {
     $Src = "X:\OSDCloud\Config\Scripts\SetupComplete\$File"
-    if (Test-Path $Src) {
-        Copy-Item $Src -Destination "$SetupScriptDest\$File" -Force
-        Write-Host "      OK: $File kopiert" -ForegroundColor Green
-    } else {
-        Write-Host "      WARNUNG: $File nicht gefunden" -ForegroundColor Yellow
-    }
+    if (Test-Path $Src) { Copy-Item $Src -Destination "$SetupScriptDest\$File" -Force }
+}
+
+# DeployOverlay fuer Post-Install (WinGet-Task) ablegen
+$CYBDir = "C:\ProgramData\CYB"
+New-Item -Path $CYBDir -ItemType Directory -Force | Out-Null
+$OverlaySrc = "X:\OSDCloud\Config\Scripts\DeployOverlay.ps1"
+if (Test-Path $OverlaySrc) {
+    Copy-Item $OverlaySrc -Destination "$CYBDir\DeployOverlay.ps1" -Force
 }
 
 #================================================
-# Neustart
+# [4/4] Neustart
 #================================================
-Update-DeployStatus -Step 4 -Message "[4/4] Neustart wird eingeleitet..."
+Update-DeployStatus -Step 4 -Message "Neustart wird eingeleitet..." -Progress 100
 Close-DeployOverlay
-
-Write-Host "Restarting in 10 sec..." -ForegroundColor Green
-Start-Sleep -Seconds 10
+Start-Sleep -Seconds 5
 wpeutil reboot
